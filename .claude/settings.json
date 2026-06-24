@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv:*)",
+      "Bash(poetry:*)",
+      "Bash(ruff:*)",
+      "Bash(pytest:*)",
+      "Bash(python manage.py:*)",
+      "Bash(uv run:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(make:*)",
+      "Bash(curl:*)",
+      "Bash(jq:*)"
+    ],
+    "deny": [
+      "Bash(docker compose down -v:*)",
+      "Read(./**/.env)"
+    ]
+  },
+  "env": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONUNBUFFERED": "1"
+  }
+}
