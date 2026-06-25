@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { deleteProduct, getCategories, listProducts } from "../api/products";
 import { parseApiError } from "../api/errors";
+import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { Loader } from "../components/Loader";
 import { Pagination } from "../components/Pagination";
@@ -28,6 +29,10 @@ export function ProductsPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Product | null>(null);
+
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const cartError = useCartStore((s) => s.error);
   const clearError = useCartStore((s) => s.clearError);
@@ -108,14 +113,30 @@ export function ProductsPage() {
     setModalOpen(true);
   }
 
-  async function handleDelete(product: Product) {
-    if (!window.confirm(`¿Eliminar "${product.name}"? Esta acción no se puede deshacer.`)) return;
+  function handleDelete(product: Product) {
+    setDeleteTarget(product);
+    setDeleteError(null);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
     try {
-      await deleteProduct(product.id);
+      await deleteProduct(deleteTarget.id);
+      setDeleteTarget(null);
       loadPage(page, pageSize, filters);
     } catch (err) {
-      setError(parseApiError(err, "No se pudo eliminar el producto."));
+      setDeleteError(parseApiError(err, "No se pudo eliminar el producto."));
+    } finally {
+      setDeleting(false);
     }
+  }
+
+  function cancelDelete() {
+    if (deleting) return;
+    setDeleteTarget(null);
+    setDeleteError(null);
   }
 
   function handleModalSuccess(saved: Product) {
@@ -211,6 +232,14 @@ export function ProductsPage() {
         product={editTarget}
         categories={categories}
         onSuccess={handleModalSuccess}
+      />
+
+      <DeleteConfirmModal
+        product={deleteTarget}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+        loading={deleting}
+        error={deleteError}
       />
     </section>
   );
