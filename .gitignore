@@ -222,3 +222,5 @@ node_modules/
 frontend/dist/
 frontend/.env.local
 frontend/tsconfig.tsbuildinfo
+frontend/.claude/
+frontend/.playwright/

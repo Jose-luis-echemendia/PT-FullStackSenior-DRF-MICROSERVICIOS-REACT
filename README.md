@@ -180,6 +180,18 @@ El carrito y las órdenes se identifican con el header **`X-User-Id`** (token an
 
 Al crear la orden se publica `order.created` → el stock se descuenta en Products y el carrito se vacía en Cart (asíncrono).
 
+### Documentación interactiva (Swagger UI / ReDoc)
+
+Con los servicios en ejecución (`make up`), la documentación OpenAPI 3.0 generada automáticamente por **drf-spectacular** está disponible en:
+
+| Servicio  | Swagger UI                                              | ReDoc                                              |
+|-----------|---------------------------------------------------------|----------------------------------------------------|
+| Products  | http://localhost:8080/api/products/schema/swagger-ui/   | http://localhost:8080/api/products/schema/redoc/   |
+| Cart      | http://localhost:8080/api/cart/schema/swagger-ui/       | http://localhost:8080/api/cart/schema/redoc/       |
+| Orders    | http://localhost:8080/api/orders/schema/swagger-ui/     | http://localhost:8080/api/orders/schema/redoc/     |
+
+El schema OpenAPI en formato YAML es descargable desde `/api/{servicio}/schema/`.
+
 ---
 
 ## Estructura del proyecto
