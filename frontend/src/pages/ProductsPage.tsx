@@ -1,152 +1,32 @@
-import { useCallback, useEffect, useState } from "react";
-import { deleteProduct, getCategories, listProducts } from "../api/products";
-import { parseApiError } from "../api/errors";
+import { useProductCatalog } from "../hooks/useProductCatalog";
+import { useDeleteProduct } from "../hooks/useDeleteProduct";
+import { useProductModal } from "../hooks/useProductModal";
 import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { Loader } from "../components/Loader";
 import { Pagination } from "../components/Pagination";
 import { ProductCard } from "../components/ProductCard";
-import { ProductFilters, EMPTY_FILTERS } from "../components/ProductFilters";
-import type { FilterState } from "../components/ProductFilters";
+import { ProductFilters } from "../components/ProductFilters";
 import { ProductModal } from "../components/ProductModal";
 import { ProductTable } from "../components/ProductTable";
 import { ViewToggle } from "../components/ViewToggle";
 import { useCartStore } from "../store/cartStore";
-import type { CategoryOption, Product } from "../types";
+import { useState } from "react";
 
 type View = "card" | "table";
 
 export function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [count, setCount] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(12);
-  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
-  const [view, setView] = useState<View>("card");
-  const [categories, setCategories] = useState<CategoryOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<Product | null>(null);
-
-  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const catalog = useProductCatalog();
+  const deletion = useDeleteProduct(catalog.reload);
+  const modal = useProductModal({
+    setProducts: catalog.setProducts,
+    onCreated: catalog.reload,
+  });
 
   const cartError = useCartStore((s) => s.error);
   const clearError = useCartStore((s) => s.clearError);
 
-  const loadPage = useCallback(
-    async (p: number, size: number, f: FilterState) => {
-      setLoading(true);
-      setError(null);
-      try {
-        // Strip empty strings so they don't reach the API as empty query params
-        const cleanFilters = Object.fromEntries(
-          Object.entries(f).filter(([, v]) => v !== ""),
-        );
-        const data = await listProducts({ page: p, page_size: size, ...cleanFilters });
-        setProducts(data.results);
-        setCount(data.count);
-      } catch (err) {
-        setError(parseApiError(err, "No se pudieron cargar los productos."));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
-
-  useEffect(() => {
-    getCategories().then(setCategories).catch(() => {});
-    loadPage(1, 12, EMPTY_FILTERS);
-  }, [loadPage]);
-
-  // Stock can change asynchronously (the order.created consumer decrements it),
-  // so refetch the catalog whenever the tab regains focus — e.g. on returning
-  // from checkout — to surface up-to-date stock without a full reload.
-  useEffect(() => {
-    function refetchOnVisible() {
-      if (document.visibilityState === "visible") loadPage(page, pageSize, filters);
-    }
-    window.addEventListener("focus", refetchOnVisible);
-    document.addEventListener("visibilitychange", refetchOnVisible);
-    return () => {
-      window.removeEventListener("focus", refetchOnVisible);
-      document.removeEventListener("visibilitychange", refetchOnVisible);
-    };
-  }, [loadPage, page, pageSize, filters]);
-
-  function handlePageChange(p: number) {
-    setPage(p);
-    loadPage(p, pageSize, filters);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  function handlePageSizeChange(size: number) {
-    setPageSize(size);
-    setPage(1);
-    loadPage(1, size, filters);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  function handleFilterChange(newFilters: FilterState) {
-    setFilters(newFilters);
-    setPage(1);
-    loadPage(1, pageSize, newFilters);
-  }
-
-  function handleClearFilters() {
-    setFilters(EMPTY_FILTERS);
-    setPage(1);
-    loadPage(1, pageSize, EMPTY_FILTERS);
-  }
-
-  function openCreate() {
-    setEditTarget(null);
-    setModalOpen(true);
-  }
-
-  function openEdit(product: Product) {
-    setEditTarget(product);
-    setModalOpen(true);
-  }
-
-  function handleDelete(product: Product) {
-    setDeleteTarget(product);
-    setDeleteError(null);
-  }
-
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    setDeleteError(null);
-    try {
-      await deleteProduct(deleteTarget.id);
-      setDeleteTarget(null);
-      loadPage(page, pageSize, filters);
-    } catch (err) {
-      setDeleteError(parseApiError(err, "No se pudo eliminar el producto."));
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  function cancelDelete() {
-    if (deleting) return;
-    setDeleteTarget(null);
-    setDeleteError(null);
-  }
-
-  function handleModalSuccess(saved: Product) {
-    if (editTarget) {
-      setProducts((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
-    } else {
-      setPage(1);
-      loadPage(1, pageSize, filters);
-    }
-  }
+  const [view, setView] = useState<View>("card");
 
   return (
     <section className="pb-12">
@@ -154,16 +34,16 @@ export function ProductsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Productos</h1>
-          {!loading && (
+          {!catalog.loading && (
             <p className="text-slate-500 text-sm mt-1">
-              {count} {count === 1 ? "producto" : "productos"}
+              {catalog.count} {catalog.count === 1 ? "producto" : "productos"}
             </p>
           )}
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <ViewToggle view={view} onChange={setView} />
           <button
-            onClick={openCreate}
+            onClick={modal.openCreate}
             className="flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -181,29 +61,29 @@ export function ProductsPage() {
 
       {/* Filters */}
       <ProductFilters
-        filters={filters}
-        categories={categories}
-        onChange={handleFilterChange}
-        onClear={handleClearFilters}
+        filters={catalog.filters}
+        categories={catalog.categories}
+        onChange={catalog.handleFilterChange}
+        onClear={catalog.handleClearFilters}
       />
 
       {cartError && <ErrorBanner message={cartError} onClose={clearError} />}
-      {error && <ErrorBanner message={error} onClose={() => setError(null)} />}
+      {catalog.error && <ErrorBanner message={catalog.error} onClose={() => catalog.setError(null)} />}
 
-      {loading ? (
+      {catalog.loading ? (
         <Loader label="Cargando productos..." />
       ) : view === "card" ? (
         <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(220px,1fr))]">
-          {products.map((p) => (
+          {catalog.products.map((p) => (
             <ProductCard
               key={p.id}
               product={p}
-              categories={categories}
-              onEdit={() => openEdit(p)}
-              onDelete={() => handleDelete(p)}
+              categories={catalog.categories}
+              onEdit={() => modal.openEdit(p)}
+              onDelete={() => deletion.handleDelete(p)}
             />
           ))}
-          {products.length === 0 && (
+          {catalog.products.length === 0 && (
             <p className="text-slate-400 col-span-full text-center py-16">
               No hay productos con los filtros aplicados.
             </p>
@@ -211,35 +91,35 @@ export function ProductsPage() {
         </div>
       ) : (
         <ProductTable
-          products={products}
-          categories={categories}
-          onEdit={openEdit}
-          onDelete={handleDelete}
+          products={catalog.products}
+          categories={catalog.categories}
+          onEdit={modal.openEdit}
+          onDelete={deletion.handleDelete}
         />
       )}
 
       <Pagination
-        count={count}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={handlePageChange}
-        onPageSizeChange={handlePageSizeChange}
+        count={catalog.count}
+        page={catalog.page}
+        pageSize={catalog.pageSize}
+        onPageChange={catalog.handlePageChange}
+        onPageSizeChange={catalog.handlePageSizeChange}
       />
 
       <ProductModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        product={editTarget}
-        categories={categories}
-        onSuccess={handleModalSuccess}
+        open={modal.modalOpen}
+        onClose={modal.closeModal}
+        product={modal.editTarget}
+        categories={catalog.categories}
+        onSuccess={modal.handleModalSuccess}
       />
 
       <DeleteConfirmModal
-        product={deleteTarget}
-        onConfirm={confirmDelete}
-        onCancel={cancelDelete}
-        loading={deleting}
-        error={deleteError}
+        product={deletion.deleteTarget}
+        onConfirm={deletion.confirmDelete}
+        onCancel={deletion.cancelDelete}
+        loading={deletion.deleting}
+        error={deletion.deleteError}
       />
     </section>
   );
