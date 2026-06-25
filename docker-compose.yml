@@ -62,6 +62,16 @@ services:
       retries: 10
 
   # ------------------------------------------------------------------ #
+  # Cache (Redis — Products catalog read cache)                        #
+  # ------------------------------------------------------------------ #
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  # ------------------------------------------------------------------ #
   # Products service (API + event consumer)                            #
   # ------------------------------------------------------------------ #
   products:
@@ -69,6 +79,7 @@ services:
     environment:
       <<: *django-env
       DATABASE_URL: "postgres://${DB_USER:-ecommerce}:${DB_PASSWORD:-changeme}@products-db:5432/products_db"
+      REDIS_URL: "redis://redis:6379/0"
     command: >
       sh -c "python manage.py migrate &&
              python manage.py seed_products &&
@@ -76,16 +87,19 @@ services:
     depends_on:
       products-db: {condition: service_healthy}
       rabbitmq: {condition: service_healthy}
+      redis: {condition: service_healthy}
 
   products-consumer:
     build: ./services/products
     environment:
       <<: *django-env
       DATABASE_URL: "postgres://${DB_USER:-ecommerce}:${DB_PASSWORD:-changeme}@products-db:5432/products_db"
+      REDIS_URL: "redis://redis:6379/0"
     command: ["python", "manage.py", "consume_events"]
     depends_on:
       products: {condition: service_started}
       rabbitmq: {condition: service_healthy}
+      redis: {condition: service_healthy}
 
   # ------------------------------------------------------------------ #
   # Cart service (API + event consumer)                                #
@@ -133,6 +147,16 @@ services:
       products: {condition: service_started}
       rabbitmq: {condition: service_healthy}
 
+  orders-outbox-relay:
+    build: ./services/orders
+    environment:
+      <<: *django-env
+      DATABASE_URL: "postgres://${DB_USER:-ecommerce}:${DB_PASSWORD:-changeme}@orders-db:5432/orders_db"
+    command: ["python", "manage.py", "publish_outbox"]
+    depends_on:
+      orders: {condition: service_started}
+      rabbitmq: {condition: service_healthy}
+
   # ------------------------------------------------------------------ #
   # API Gateway + Frontend                                             #
   # ------------------------------------------------------------------ #
@@ -149,6 +173,7 @@ services:
 
   frontend:
     build: ./frontend
+    profiles: [frontend]
     ports:
       - "5173:80"
     depends_on:
