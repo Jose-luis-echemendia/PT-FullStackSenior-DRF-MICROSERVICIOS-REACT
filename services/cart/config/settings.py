@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "drf_spectacular",
     "corsheaders",
     "cart",
 ]
@@ -73,6 +74,23 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
+    "DEFAULT_THROTTLE_RATES": {
+        "cart": "60/minute",
+    },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Cart Service API",
+    "DESCRIPTION": (
+        "Gestión del carrito de compras por usuario anónimo (X-User-Id). "
+        "Permite agregar, actualizar y eliminar ítems. "
+        "Valida stock y precio contra el Products Service en tiempo real. "
+        "Se vacía automáticamente al recibir el evento `order.created` de RabbitMQ."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
 }
 
 CORS_ALLOWED_ORIGINS = config(
