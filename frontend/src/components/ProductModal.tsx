@@ -13,8 +13,6 @@ interface Props {
   onSuccess: (p: Product) => void;
 }
 
-type FormErrors = Partial<Record<keyof ProductFormData, string>>;
-
 const EMPTY: ProductFormData = {
   name: "",
   description: "",
@@ -23,6 +21,8 @@ const EMPTY: ProductFormData = {
   category: "",
   is_active: true,
 };
+
+type FormErrors = Partial<Record<keyof ProductFormData, string>>;
 
 function validate(data: ProductFormData): FormErrors {
   const errors: FormErrors = {};
@@ -54,7 +54,6 @@ function validate(data: ProductFormData): FormErrors {
 
 export function ProductModal({ open, onClose, product, categories, onSuccess }: Props) {
   const [form, setForm] = useState<ProductFormData>(EMPTY);
-  const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Partial<Record<keyof ProductFormData, boolean>>>({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -75,16 +74,11 @@ export function ProductModal({ open, onClose, product, categories, onSuccess }: 
     } else {
       setForm(EMPTY);
     }
-    setErrors({});
     setTouched({});
     setSubmitAttempted(false);
     setApiError(null);
     setTimeout(() => firstInputRef.current?.focus(), 50);
   }, [open, product]);
-
-  useEffect(() => {
-    if (submitAttempted) setErrors(validate(form));
-  }, [form, submitAttempted]);
 
   if (!open) return null;
 
@@ -94,18 +88,17 @@ export function ProductModal({ open, onClose, product, categories, onSuccess }: 
 
   function handleBlur(field: keyof ProductFormData) {
     setTouched((prev) => ({ ...prev, [field]: true }));
-    setErrors((prev) => ({ ...prev, ...validate({ ...form }) }));
   }
 
   function fieldError(field: keyof ProductFormData) {
-    return (touched[field] || submitAttempted) ? errors[field] : undefined;
+    if (!touched[field] && !submitAttempted) return undefined;
+    return validate(form)[field];
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitAttempted(true);
     const errs = validate(form);
-    setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
     setSubmitting(true);
