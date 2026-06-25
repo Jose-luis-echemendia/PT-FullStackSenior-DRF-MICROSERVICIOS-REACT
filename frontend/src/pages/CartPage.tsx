@@ -8,7 +8,7 @@ import { Loader } from "../components/Loader";
 import { useCartStore } from "../store/cartStore";
 
 export function CartPage() {
-  const { cart, loading, error, fetchCart, clearError } = useCartStore();
+  const { cart, loading, error, fetchCart, clearError, clearCart } = useCartStore();
   const navigate = useNavigate();
   const [placing, setPlacing] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
@@ -63,7 +63,16 @@ export function CartPage() {
           </table>
 
           <div className="flex justify-between items-center mt-6">
-            <h2>Subtotal: ${cart!.subtotal}</h2>
+            <div className="flex items-center gap-4">
+              <h2>Subtotal: ${cart!.subtotal}</h2>
+              <button
+                className="bg-transparent text-red-600 border border-red-400 rounded-lg px-4 py-2 text-sm font-medium cursor-pointer hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={placing || loading}
+                onClick={clearCart}
+              >
+                Vaciar carrito
+              </button>
+            </div>
             <button
               className="bg-blue-600 text-white border-0 rounded-lg px-6 py-3 text-base font-semibold cursor-pointer hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={placing}

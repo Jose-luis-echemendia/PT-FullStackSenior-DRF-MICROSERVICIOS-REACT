@@ -11,6 +11,7 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     description: "Mecánico",
     price: "59.99",
     stock: 10,
+    category: null,
     is_active: true,
     created_at: "",
     updated_at: "",
@@ -18,16 +19,20 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
   };
 }
 
+import type { CategoryOption } from "../types";
+
+const noCategories: CategoryOption[] = [];
+
 describe("ProductCard", () => {
   it("renders product info", () => {
-    render(<ProductCard product={makeProduct()} />);
+    render(<ProductCard product={makeProduct()} categories={noCategories} />);
     expect(screen.getByText("Teclado")).toBeInTheDocument();
     expect(screen.getByText("$59.99")).toBeInTheDocument();
     expect(screen.getByText("Stock: 10")).toBeInTheDocument();
   });
 
   it("disables the button and shows 'Agotado' when out of stock", () => {
-    render(<ProductCard product={makeProduct({ stock: 0 })} />);
+    render(<ProductCard product={makeProduct({ stock: 0 })} categories={noCategories} />);
     const button = screen.getByRole("button");
     expect(button).toBeDisabled();
     expect(button).toHaveTextContent("Agotado");
@@ -37,7 +42,7 @@ describe("ProductCard", () => {
     const addItem = vi.fn().mockResolvedValue(true);
     useCartStore.setState({ addItem });
 
-    render(<ProductCard product={makeProduct({ id: "abc" })} />);
+    render(<ProductCard product={makeProduct({ id: "abc" })} categories={noCategories} />);
     await act(async () => {
       fireEvent.click(screen.getByText("Agregar al carrito"));
     });
