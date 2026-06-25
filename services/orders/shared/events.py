@@ -28,8 +28,12 @@ def _params() -> pika.URLParameters:
     return pika.URLParameters(settings.RABBITMQ_URL)
 
 
-def publish_event(routing_key: str, payload: dict) -> None:
-    """Publish a domain event. Failures are logged, not raised."""
+def publish_event(routing_key: str, payload: dict) -> bool:
+    """Publish a domain event. Failures are logged, not raised.
+
+    Returns ``True`` on a successful publish and ``False`` if the broker could
+    not be reached, so the outbox relay knows whether to mark the row as sent.
+    """
     try:
         connection = pika.BlockingConnection(_params())
         channel = connection.channel()
@@ -45,8 +49,10 @@ def publish_event(routing_key: str, payload: dict) -> None:
         )
         connection.close()
         logger.info("Published %s: %s", routing_key, payload)
+        return True
     except Exception:  # noqa: BLE001 - never break the caller on broker issues
         logger.exception("Failed to publish event %s", routing_key)
+        return False
 
 
 def consume(

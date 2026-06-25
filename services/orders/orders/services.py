@@ -7,10 +7,8 @@ from decimal import Decimal
 from django.db import transaction
 from rest_framework.exceptions import APIException, ValidationError
 
-from shared.events import publish_event
-
 from .clients import ServiceError, fetch_cart, fetch_product_stock
-from .models import Order, OrderItem
+from .models import Order, OrderItem, OutboxEvent
 
 
 class UpstreamUnavailable(APIException):
@@ -68,19 +66,17 @@ def create_order_from_cart(user_id: str) -> Order:
         ]
     )
 
-    # Emit the domain event AFTER the transaction commits, so consumers never
-    # act on an order that was rolled back.
-    transaction.on_commit(
-        lambda: publish_event(
-            "order.created",
-            {
-                "order_id": str(order.id),
-                "order_number": order.order_number,
-                "user_id": user_id,
-                "items": [
-                    {"product_id": i["product_id"], "quantity": i["quantity"]} for i in items
-                ],
-            },
-        )
+    # Transactional outbox: persist the event in the SAME transaction as the
+    # order. If the order rolls back, so does the event; if it commits, the
+    # ``publish_outbox`` relay delivers it to RabbitMQ with retry. This removes
+    # the "event lost when broker is down at commit" failure mode.
+    OutboxEvent.objects.create(
+        routing_key="order.created",
+        payload={
+            "order_id": str(order.id),
+            "order_number": order.order_number,
+            "user_id": user_id,
+            "items": [{"product_id": i["product_id"], "quantity": i["quantity"]} for i in items],
+        },
     )
     return order
