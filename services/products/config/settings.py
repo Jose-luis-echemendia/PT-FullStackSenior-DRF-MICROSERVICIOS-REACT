@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Third party
     "rest_framework",
+    "drf_spectacular",
     "django_filters",
     "corsheaders",
     # Local
@@ -76,8 +77,21 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_PAGINATION_CLASS": "products.pagination.ProductPagination",
     "PAGE_SIZE": 20,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Products Service API",
+    "DESCRIPTION": (
+        "Catálogo de productos con stock. "
+        "Expone CRUD de productos, filtros por categoría/precio/stock y el endpoint /categories/. "
+        "Consume el evento `order.created` de RabbitMQ para decrementar stock de forma idempotente."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
 }
 
 # CORS
@@ -97,3 +111,22 @@ CORS_ALLOW_HEADERS = (
 
 # Messaging
 RABBITMQ_URL = config("RABBITMQ_URL", default="amqp://guest:guest@rabbitmq:5672/")
+
+# Cache — Redis in Docker; in-memory fallback for local runs and tests so the
+# suite never needs a running Redis. Powers the versioned product catalog cache.
+REDIS_URL = config("REDIS_URL", default="")
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_URL,
+            "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "products-cache",
+        }
+    }

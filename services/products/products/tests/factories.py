@@ -13,4 +13,5 @@ class ProductFactory(factory.django.DjangoModelFactory):
     description = "A sample product"
     price = Decimal("10.00")
     stock = 50
+    category = Product.Category.TECNOLOGIA
     is_active = True
