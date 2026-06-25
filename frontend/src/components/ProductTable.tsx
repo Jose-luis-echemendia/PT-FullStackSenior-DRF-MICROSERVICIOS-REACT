@@ -18,7 +18,7 @@ export function ProductTable({ products, categories, onEdit, onDelete }: Props) 
 
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200">
-      <table className="w-full text-sm">
+      <table className="w-full min-w-160 text-sm">
         <thead>
           <tr className="bg-slate-50 border-b border-slate-200">
             {["Nombre", "Categoría", "Precio", "Stock", "Activo", "Acciones"].map((h) => (

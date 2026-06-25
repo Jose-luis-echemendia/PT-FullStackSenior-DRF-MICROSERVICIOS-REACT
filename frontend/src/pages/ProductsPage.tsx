@@ -130,7 +130,7 @@ export function ProductsPage() {
   return (
     <section className="pb-12">
       {/* Page header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Productos</h1>
           {!loading && (
@@ -139,11 +139,11 @@ export function ProductsPage() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <ViewToggle view={view} onChange={setView} />
           <button
             onClick={openCreate}
-            className="flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            className="flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path
