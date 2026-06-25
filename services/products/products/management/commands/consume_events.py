@@ -7,6 +7,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.db.models import F
 
+from products.cache import invalidate_products
 from products.models import ProcessedEvent, Product
 from shared.events import consume
 
@@ -26,6 +27,9 @@ def handle_order_created(routing_key: str, payload: dict) -> None:
             Product.objects.filter(id=item["product_id"]).update(
                 stock=F("stock") - item["quantity"]
             )
+        # Stock just changed: drop the catalog cache so the UI's next fetch is
+        # fresh. Runs only after a successful commit and only on first delivery.
+        transaction.on_commit(invalidate_products)
 
 
 class Command(BaseCommand):
