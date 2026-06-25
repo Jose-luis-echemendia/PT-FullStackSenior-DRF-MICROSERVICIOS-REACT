@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "drf_spectacular",
     "corsheaders",
     "orders",
 ]
@@ -73,6 +74,25 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+    "DEFAULT_THROTTLE_RATES": {
+        "order": "60/minute",
+        "checkout": "10/minute",
+    },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Orders Service API",
+    "DESCRIPTION": (
+        "Creación y consulta de órdenes. "
+        "Al crear una orden (POST /api/orders/) se lee el carrito del usuario, "
+        "se valida stock contra el Products Service y se persiste un snapshot inmutable de los ítems. "
+        "Tras el commit publica el evento `order.created` en RabbitMQ para desencadenar "
+        "el decremento de stock y el vaciado del carrito de forma asíncrona."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
 }
 
 CORS_ALLOWED_ORIGINS = config(

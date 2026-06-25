@@ -1,11 +1,10 @@
 import uuid
-from unittest import mock
 
 import pytest
 import responses
 from rest_framework.test import APIClient
 
-from orders.models import Order, OrderItem
+from orders.models import Order, OrderItem, OutboxEvent
 
 CART_URL = "http://cart:8002"
 PRODUCTS_URL = "http://products:8001"
@@ -53,8 +52,7 @@ def test_create_order_empty_cart(client):
 
 @pytest.mark.django_db
 @responses.activate
-@mock.patch("orders.services.publish_event")
-def test_create_order_success(mock_publish, client, django_capture_on_commit_callbacks):
+def test_create_order_success(client):
     pid = str(uuid.uuid4())
     item = {
         "product_id": pid,
@@ -65,8 +63,7 @@ def test_create_order_success(mock_publish, client, django_capture_on_commit_cal
     _mock_cart(items=[item], subtotal="20.00")
     _mock_stock(pid, stock=50)
 
-    with django_capture_on_commit_callbacks(execute=True):
-        resp = client.post("/api/orders/")
+    resp = client.post("/api/orders/")
 
     assert resp.status_code == 201
     assert resp.data["status"] == "CONFIRMED"
@@ -75,17 +72,17 @@ def test_create_order_success(mock_publish, client, django_capture_on_commit_cal
     assert len(resp.data["items"]) == 1
     assert Order.objects.count() == 1
     assert OrderItem.objects.count() == 1
-    # Event published exactly once (on_commit fired in test transaction).
-    mock_publish.assert_called_once()
-    args = mock_publish.call_args.args
-    assert args[0] == "order.created"
-    assert args[1]["user_id"] == USER
+    # The event is written to the outbox (unpublished) in the same transaction,
+    # NOT pushed to the broker inline. The relay delivers it later.
+    event = OutboxEvent.objects.get()
+    assert event.routing_key == "order.created"
+    assert event.published_at is None
+    assert event.payload["user_id"] == USER
 
 
 @pytest.mark.django_db
 @responses.activate
-@mock.patch("orders.services.publish_event")
-def test_create_order_insufficient_stock(mock_publish, client):
+def test_create_order_insufficient_stock(client):
     pid = str(uuid.uuid4())
     item = {
         "product_id": pid,
@@ -100,7 +97,8 @@ def test_create_order_insufficient_stock(mock_publish, client):
 
     assert resp.status_code == 400
     assert Order.objects.count() == 0
-    mock_publish.assert_not_called()
+    # Order rolled back → no outbox row leaked.
+    assert OutboxEvent.objects.count() == 0
 
 
 @pytest.mark.django_db
