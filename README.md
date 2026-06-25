@@ -71,7 +71,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Esto levanta: 3 bases PostgreSQL, RabbitMQ, los 3 servicios Django (+ 2 workers consumidores), el gateway Nginx y el frontend. Las migraciones y el *seed* de productos se ejecutan automáticamente.
+Esto levanta: 3 bases PostgreSQL, RabbitMQ, Redis, los 3 servicios Django (+ 3 workers: `products-consumer`, `cart-consumer`, `orders-outbox-relay`), el gateway Nginx y el frontend. Las migraciones y el *seed* de productos se ejecutan automáticamente.
 
 | Servicio            | URL                              |
 |---------------------|----------------------------------|
@@ -204,11 +204,11 @@ El schema OpenAPI en formato YAML es descargable desde `/api/{servicio}/schema/`
 ├── services/
 │   ├── products/               # Django REST · CRUD + consumer (stock)
 │   ├── cart/                    # Django REST · carrito + consumer (limpieza)
-│   └── orders/                  # Django REST · orquestación + publisher
+│   └── orders/                  # Django REST · orquestación + Outbox publisher
 │       └── <app>/
 │           ├── models.py serializers.py views.py
 │           ├── services.py clients.py        # lógica de negocio + HTTP inter-servicios
-│           ├── management/commands/consume_events.py
+│           ├── management/commands/publish_outbox.py
 │           └── tests/
 │       └── shared/events.py     # publisher / consumer RabbitMQ (pika)
 └── frontend/                    # React + Vite + TS + Zustand
@@ -223,10 +223,11 @@ El schema OpenAPI en formato YAML es descargable desde `/api/{servicio}/schema/`
 make test            # backend (pytest) + frontend (vitest)
 ```
 
-- **Backend** (`pytest` + `responses` para mockear llamadas inter-servicio): 23 tests
-  cubriendo CRUD, validaciones, reglas de carrito, creación de orden, validación de
-  stock y los handlers de eventos (descuento de stock + idempotencia, limpieza de carrito).
-- **Frontend** (`vitest` + Testing Library): componentes y store de Zustand.
+- **Backend** (`pytest` + `responses` para mockear llamadas inter-servicio): 45 tests
+  cubriendo CRUD, validaciones, caché Redis del catálogo, reglas de carrito, creación de
+  orden, validación de stock, handlers de eventos (descuento de stock + idempotencia,
+  limpieza de carrito) y publicación del Outbox.
+- **Frontend** (`vitest` + Testing Library): 6 tests sobre componentes y store de Zustand.
 
 ---
 
@@ -243,8 +244,5 @@ make test            # backend (pytest) + frontend (vitest)
 | **Token anónimo (`X-User-Id`)** | Identificación simplificada sin login; ruta de evolución directa a JWT. |
 | **uv + Poetry + ruff** | Poetry declara dependencias, uv instala rápido en Docker, ruff hace lint+format. |
 | **bun (frontend)** | Instalación y ejecución de scripts más rápidas que npm. |
-
-### Escalabilidad futura
-Servicios *stateless* (escalables horizontalmente), caché Redis para el catálogo,
-patrón Saga/Outbox para flujos de orden más complejos, y observabilidad (OpenTelemetry)
-en el gateway. Ver `IMPLEMENTATION_PLAN.md` para el detalle completo.
+| **Caché Redis (catálogo)** | Products usa Redis para cachear lecturas del catálogo; reduce carga en Postgres bajo tráfico de lectura alto. |
+| **Patrón Outbox** | La orden y su evento se persisten en la misma transacción DB (`OutboxEvent`); un worker (`publish_outbox`) los publica a RabbitMQ, garantizando entrega al menos una vez sin pérdida ante caídas. |
