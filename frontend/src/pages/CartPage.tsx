@@ -1,35 +1,17 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { createOrder } from "../api/orders";
-import { parseApiError } from "../api/errors";
+import { useEffect } from "react";
 import { CartItemRow } from "../components/CartItemRow";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { Loader } from "../components/Loader";
+import { useCreateOrder } from "../hooks/useCreateOrder";
 import { useCartStore } from "../store/cartStore";
 
 export function CartPage() {
   const { cart, loading, error, fetchCart, clearError, clearCart } = useCartStore();
-  const navigate = useNavigate();
-  const [placing, setPlacing] = useState(false);
-  const [orderError, setOrderError] = useState<string | null>(null);
+  const { placing, orderError, handleCreateOrder, clearOrderError } = useCreateOrder();
 
   useEffect(() => {
     fetchCart();
   }, [fetchCart]);
-
-  const handleCreateOrder = async () => {
-    setPlacing(true);
-    setOrderError(null);
-    try {
-      const order = await createOrder();
-      await fetchCart(); // backend emptied it via event; refresh local state
-      navigate(`/order/success/${order.order_number}`);
-    } catch (err) {
-      setOrderError(parseApiError(err, "No se pudo crear la orden"));
-    } finally {
-      setPlacing(false);
-    }
-  };
 
   const isEmpty = !cart || cart.items.length === 0;
 
@@ -37,7 +19,7 @@ export function CartPage() {
     <section>
       <h1>Tu carrito</h1>
       {error && <ErrorBanner message={error} onClose={clearError} />}
-      {orderError && <ErrorBanner message={orderError} onClose={() => setOrderError(null)} />}
+      {orderError && <ErrorBanner message={orderError} onClose={clearOrderError} />}
 
       {loading && !cart ? (
         <Loader label="Cargando carrito..." />
